@@ -1,0 +1,19 @@
+[Unit]
+Description=KX OPC UA 多炉台采集客户端（-> TDengine）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kxopc
+Group=kxopc
+WorkingDirectory=/opt/kx-opc-client
+ExecStart=/opt/kx-opc-client/kx-opc-client -config /opt/kx-opc-client/config.yaml
+Environment=TZ=Asia/Shanghai
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

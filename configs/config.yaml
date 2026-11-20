@@ -1,0 +1,29 @@
+# kx-opc-client 运行配置。时长格式：1s / 5m / 24h；相对路径基于本文件所在目录。
+# 要采集哪些炉台写在 furnaces.json 里。
+
+tdengine:
+  dsn: "root:taosdata@ws(10.65.104.171:6041)/kx_opc"  # taosWS 连接串（经 taosAdapter 6041 端口） 晶品TD地址
+  # dsn: "root:taosdata@ws(172.16.2.124:6041)/kx_opc"  # taosWS 连接串（经 taosAdapter 6041 端口） 无锡TD地址
+  # 库不存在时自动建库的参数（CREATE DATABASE 库名 之后的部分），为空则不自动建库。库已存在时不会改它的参数。
+  # MAXROWS/MINROWS 越大数据块越大、压缩率越高；KEEP 为保留天数
+  database_options: "PRECISION 'ms' KEEP 1095d DURATION 10d MAXROWS 40000 MINROWS 1000 COMP 2 CACHEMODEL 'last_row'"
+  # 每一列（含 ts）的压缩：建表、加列时带上 COMPRESS ... LEVEL ...；已有列不一致时启动后自动改过来（只影响之后落盘的数据）
+  compress: zstd                    # lz4 / zlib / zstd / xz / disabled；xz 压缩率最高但写入和查询都更慢
+  compress_level: high              # low / medium / high
+  super_table: opc_data       # 超级表：ts（采集时间）+ 每个点位一列，标签 device_id、device_ip
+  table_prefix: opc_          # 子表名 = 前缀 + IP（点换成下划线），如 opc_10_65_108_12
+  value_length: 256           # 字符串类点位（OPC 类型 String）的 VARCHAR 长度（字节），超长截断；其他点位按 OPC 类型建列
+  # TDengine 写不进去（断网、服务停了）时，数据先存到这个目录，恢复后自动按顺序补写，不丢数据；为空则不暂存、直接丢弃
+  spool_dir: /home/kx-opc-client/data   # 相对路径基于本文件所在目录
+  spool_max_mb: 2048          # 暂存目录最多占用的磁盘空间（MB），满了之后的新数据才会丢弃
+
+collector:
+  furnaces_file: furnaces.json      # 炉台清单
+  furnaces_reload_interval: 1h     # 多久重读一次炉台清单并探测 IP 范围：只新增炉台，删掉的要重启服务才停止；全量采集建议 1h
+  # 取数方式：订阅全部点位，服务端推送变化；服务端心跳 HEART_DATETIME 每变化一次（约每秒一轮）写一行全量，
+  # 未变化的点位沿用上次的值，ts 为心跳变化到达的时刻
+  heartbeat_timeout: 30s            # 心跳超过该时长不变化 → 状态显示为停滞（上位机断开）；心跳不变本来就不写入；0 = 不检查
+
+log:
+  level: info                       # debug / info / warn / error
+  file: logs/kx-opc-client.log      # 为空则只输出到控制台（journald）
